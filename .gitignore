@@ -1,0 +1,30 @@
+@"
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environment
+.venv/
+venv/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Editors and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Generated outputs
+dist/
+build/
+coverage.xml
+htmlcov/
+"@ | Set-Content -Encoding utf8 .gitignore
