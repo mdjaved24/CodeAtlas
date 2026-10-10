@@ -10,6 +10,7 @@ __pycache__/
 # Virtual environment
 .venv/
 venv/
+venv312/
 
 # Environment variables and secrets
 .env
@@ -22,9 +23,13 @@ venv/
 .DS_Store
 Thumbs.db
 
+
 # Generated outputs
 dist/
 build/
 coverage.xml
 htmlcov/
 "@ | Set-Content -Encoding utf8 .gitignore
+
+
+backend/scripts/

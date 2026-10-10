@@ -1,6 +1,8 @@
 
 from io import BytesIO
+import io
 from zipfile import ZipFile
+import zipfile
 
 from fastapi.testclient import TestClient
 
@@ -125,7 +127,7 @@ def test_upload_endpoint_returns_file_selection_manifest():
         archive.writestr("assets/logo.png", b"not-analyzed-image")
 
     response = client.post(
-        "/api/v1/repositories/upload-zip",
+        "/api/v1/repositories/upload-zip?include_details=true",
         files={
             "file": (
                 "example.zip",
@@ -159,3 +161,85 @@ def test_upload_endpoint_returns_file_selection_manifest():
 
     assert manifest["assets/logo.png"]["selected"] is False
     assert manifest["assets/logo.png"]["category"] == "binary"
+
+
+def test_upload_parses_selected_supported_source_files():
+    client = TestClient(app)
+
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w") as archive:
+        archive.writestr(
+            "src/payments.py",
+            "class PaymentService:\n"
+            "    def process_payment(self):\n"
+            "        pass\n",
+        )
+        archive.writestr(
+            "src/app.js",
+            "function startApp() {}",
+        )
+        archive.writestr(
+            "README.md",
+            "# CodeAtlas",
+        )
+
+    zip_buffer.seek(0)
+
+    response = client.post(
+        "/api/v1/repositories/upload-zip?include_details=true",
+        files={
+            "file": (
+                "repository.zip",
+                zip_buffer,
+                "application/zip",
+            )
+        },
+    )
+
+    assert response.status_code == 201
+
+    body = response.json()
+
+    assert body["files_parsed"] == 2
+    assert body["parse_failures"] == 0
+    assert body["symbols_extracted"] == 3
+
+    results = body["parse_results"]
+
+    assert len(results) == 2
+
+    parsed_paths = {
+        result["file_path"]
+        for result in results
+    }
+
+    assert parsed_paths == {
+        "src/payments.py",
+        "src/app.js",
+    }
+
+    assert "README.md" not in parsed_paths
+    python_result = next(
+    result
+    for result in results
+    if result["file_path"] == "src/payments.py"
+    )
+
+    javascript_result = next(
+        result
+        for result in results
+        if result["file_path"] == "src/app.js"
+    )
+
+    assert python_result["language"] == "python"
+    assert javascript_result["language"] == "javascript"
+    assert python_result["status"] == "success"
+    assert [
+        symbol["name"] for symbol in python_result["symbols"]
+    ] == ["PaymentService", "process_payment"]
+
+    assert javascript_result["status"] == "success"
+    assert [
+        symbol["name"] for symbol in javascript_result["symbols"]
+    ] == ["startApp"]
