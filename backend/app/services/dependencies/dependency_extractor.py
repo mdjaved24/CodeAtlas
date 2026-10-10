@@ -54,12 +54,15 @@ def extract_repository_dependencies(
 
     root = repository_root.resolve()
     dependencies: list[CodeDependency] = []
+    validated_source_files: dict[str, str] = {}
+
+    # Pass 1: Validate and read all supported source files.
+    validated_results: list[tuple[ParseResult, str]] = []
 
     for result in parse_results:
         if result.status not in ("success", "partial"):
             continue
 
-        
         if result.language not in (
             "python",
             "javascript",
@@ -91,177 +94,183 @@ def extract_repository_dependencies(
         except (OSError, ValueError, RuntimeError):
             continue
 
-        if result.language == "python":
-            try:
-                dependencies.extend(
-                    extract_python_import_dependencies(
-                        repository_root=root,
-                        source_file=result.file_path,
-                        source_code=source_code,
-                    )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
+        normalized_path = relative_path.as_posix()
+        validated_source_files[normalized_path] = source_code
+        validated_results.append((result, source_code))
 
-            try:
-                dependencies.extend(
-                    extract_python_call_dependencies(
-                        source_file=result.file_path,
-                        source_code=source_code,
-                        symbol_index=symbol_index,
+        for result, source_code in validated_results:
+            if result.language == "python":
+                try:
+                    dependencies.extend(
+                        extract_python_import_dependencies(
+                            repository_root=root,
+                            source_file=result.file_path,
+                            source_code=source_code,
+                        )
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
-
-            try:
-                dependencies.extend(
-                    extract_python_inheritance_dependencies(
-                        source_file=result.file_path,
-                        source_code=source_code,
-                        symbol_index=symbol_index,
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
 
-        elif result.language == "javascript":
-            try:
-                dependencies.extend(
-                    extract_javascript_import_dependencies(
-                        repository_root=root,
-                        source_file=result.file_path,
-                        source_code=source_code,
+                try:
+                    dependencies.extend(
+                        extract_python_call_dependencies(
+                            source_file=result.file_path,
+                            source_code=source_code,
+                            symbol_index=symbol_index,
+                        )
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )               
-
-            try:
-                dependencies.extend(
-                    extract_javascript_inheritance_dependencies(
-                        source_file=result.file_path,
-                        source_code=source_code,
-                        symbol_index=symbol_index,
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
 
-        elif result.language == "typescript":
-            try:
-                dependencies.extend(
-                    extract_typescript_import_dependencies(
-                        repository_root=root,
-                        source_file=result.file_path,
-                        source_code=source_code,
+                try:
+                    dependencies.extend(
+                        extract_python_inheritance_dependencies(
+                            source_file=result.file_path,
+                            source_code=source_code,
+                            symbol_index=symbol_index,
+                        )
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
-
-            try:
-                dependencies.extend(
-                    extract_typescript_inheritance_dependencies(
-                        source_file=result.file_path,
-                        source_code=source_code,
-                        symbol_index=symbol_index,
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
 
-        elif result.language == "java":
-            try:
-                dependencies.extend(
-                    extract_java_import_dependencies(
-                        repository_root=root,
-                        source_file=result.file_path,
-                        source_code=source_code,
+            elif result.language == "javascript":
+                try:
+                    dependencies.extend(
+                        extract_javascript_import_dependencies(
+                            repository_root=root,
+                            source_file=result.file_path,
+                            source_code=source_code,
+                        )
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
+                    )               
 
+                try:
+                    dependencies.extend(
+                        extract_javascript_inheritance_dependencies(
+                            source_file=result.file_path,
+                            source_code=source_code,
+                            symbol_index=symbol_index,
+                        )
+                    )
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
+                    )
+
+            elif result.language == "typescript":
+                try:
+                    dependencies.extend(
+                        extract_typescript_import_dependencies(
+                            repository_root=root,
+                            source_file=result.file_path,
+                            source_code=source_code,
+                        )
+                    )
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
+                    )
+
+                try:
+                    dependencies.extend(
+                        extract_typescript_inheritance_dependencies(
+                            source_file=result.file_path,
+                            source_code=source_code,
+                            symbol_index=symbol_index,
+                        )
+                    )
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
+                    )
+
+            elif result.language == "java":
+                try:
+                    dependencies.extend(
+                        extract_java_import_dependencies(
+                            repository_root=root,
+                            source_file=result.file_path,
+                            source_code=source_code,
+                        )
+                    )
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
+                    )
+
+                
+                try:
+                    dependencies.extend(
+                        extract_java_inheritance_dependencies(
+                            source_file=result.file_path,
+                            source_code=source_code,
+                            symbol_index=symbol_index,
+                        )
+                    )
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
+                    )
             
-            try:
-                dependencies.extend(
-                    extract_java_inheritance_dependencies(
-                        source_file=result.file_path,
-                        source_code=source_code,
-                        symbol_index=symbol_index,
-                    )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
-           
 
-        elif result.language == "csharp":
-            try:
-                dependencies.extend(
-                    extract_csharp_import_dependencies(
-                        repository_root=root,
-                        source_file=result.file_path,
-                        source_code=source_code,
+            elif result.language == "csharp":
+                try:
+                    dependencies.extend(
+                        extract_csharp_import_dependencies(
+                            repository_root=root,
+                            source_file=result.file_path,
+                            source_code=source_code,
+                        )
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
-            
-            try:
-                dependencies.extend(
-                    extract_csharp_inheritance_dependencies(
-                        source_file=result.file_path,
-                        source_code=source_code,
-                        symbol_index=symbol_index,
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
                     )
-                )
-            except Exception:
-                logger.exception(
-                    "Dependency extraction failed for %s in %s",
-                    result.file_path,
-                    result.language,
-                )
+                
+                try:
+                    dependencies.extend(
+                        extract_csharp_inheritance_dependencies(
+                            source_file=result.file_path,
+                            source_code=source_code,
+                            symbol_index=symbol_index,
+                            source_files=validated_source_files,
+                        )
+                    )
+                except Exception:
+                    logger.exception(
+                        "Dependency extraction failed for %s in %s",
+                        result.file_path,
+                        result.language,
+                    )
 
 
     # Keep each distinct relationship once while preserving order.

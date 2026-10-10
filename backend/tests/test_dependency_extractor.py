@@ -961,3 +961,101 @@ def test_orchestrator_extracts_csharp_inheritance(tmp_path, monkeypatch):
     assert inheritance_dependencies[0].target_file == "Animal.cs"
     assert inheritance_dependencies[0].source_symbol == "Dog"
     assert inheritance_dependencies[0].target_symbol == "Animal"
+
+
+
+
+def test_orchestrator_resolves_csharp_inheritance_regardless_of_parse_order(
+    tmp_path, monkeypatch
+):
+    from app.schemas.source_parser import CodeSymbol, ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "Pets").mkdir()
+    (tmp_path / "models").mkdir()
+
+    (tmp_path / "Pets" / "Dog.cs").write_text(
+        "namespace Pets;\n"
+        "public class Dog : Zoo.Animal {}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "models" / "Animal.cs").write_text(
+        "namespace Zoo;\n"
+        "public class Animal {}\n",
+        encoding="utf-8",
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="models/Animal.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="models/Animal.cs",
+                        start_line=2,
+                        end_line=2,
+                    )
+                ],
+            ),
+            ParseResult(
+                file_path="Pets/Dog.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Dog",
+                        kind="class",
+                        file_path="Pets/Dog.cs",
+                        start_line=2,
+                        end_line=2,
+                    )
+                ],
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_csharp_import_dependencies",
+        lambda **kwargs: [],
+    )
+
+    # Deliberately put Dog.cs before its base-class file.
+    parse_results = [
+        ParseResult(
+            file_path="Pets/Dog.cs",
+            language="csharp",
+            status="success",
+            symbols=[],
+        ),
+        ParseResult(
+            file_path="models/Animal.cs",
+            language="csharp",
+            status="success",
+            symbols=[],
+        ),
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=symbol_index,
+    )
+
+    inheritance_dependencies = [
+        dependency
+        for dependency in dependencies
+        if dependency.kind == "inherits"
+    ]
+
+    assert len(inheritance_dependencies) == 1
+    assert inheritance_dependencies[0].source_file == "Pets/Dog.cs"
+    assert inheritance_dependencies[0].target_file == "models/Animal.cs"
+    assert inheritance_dependencies[0].source_symbol == "Dog"
+    assert inheritance_dependencies[0].target_symbol == "Animal"
+    assert inheritance_dependencies[0].line_number == 2

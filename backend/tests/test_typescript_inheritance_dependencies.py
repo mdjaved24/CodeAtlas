@@ -109,3 +109,58 @@ def test_resolves_same_file_typescript_inheritance():
     assert dependencies[0].target_symbol == "Animal"
     assert dependencies[0].source_file == "Animal.ts"
     assert dependencies[0].target_file == "Animal.ts"
+
+
+
+
+def test_resolves_imported_base_class_when_duplicate_names_exist():
+    source_code = (
+        'import { Animal } from "./Animal";\n'
+        "class Dog extends Animal {}\n"
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="src/Animal.ts",
+                language="typescript",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="src/Animal.ts",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            ),
+            ParseResult(
+                file_path="src/Pet.ts",
+                language="typescript",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="src/Pet.ts",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            ),
+        ]
+    )
+
+    dependencies = extract_typescript_inheritance_dependencies(
+        source_file="src/Dog.ts",
+        source_code=source_code,
+        symbol_index=symbol_index,
+    )
+
+    assert len(dependencies) == 1
+    assert dependencies[0].kind == "inherits"
+    assert dependencies[0].source_file == "src/Dog.ts"
+    assert dependencies[0].target_file == "src/Animal.ts"
+    assert dependencies[0].source_symbol == "Dog"
+    assert dependencies[0].target_symbol == "Animal"

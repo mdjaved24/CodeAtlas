@@ -37,3 +37,10 @@ class SymbolIndex:
     def __len__(self) -> int:
         """Return the total number of indexed symbols."""
         return sum(len(symbols) for symbols in self._by_name.values())
+
+    def all_symbols(self) -> list[CodeSymbol]:
+        return [
+            symbol
+            for symbols in self._by_name.values()
+            for symbol in symbols
+        ]

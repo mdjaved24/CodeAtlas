@@ -127,7 +127,6 @@ def test_ignores_ambiguous_javascript_base_class() -> None:
     )
 
     source = """\
-import { Animal } from "./Animal.js";
 class Dog extends Animal {}
 """
 
@@ -150,4 +149,55 @@ def test_ignores_malformed_javascript() -> None:
     assert dependencies == []
 
 
-    
+
+def test_resolves_imported_base_class_when_duplicate_names_exist():
+    source_code = (
+        'import { Animal } from "./Animal.js";\n'
+        "class Dog extends Animal {}\n"
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="src/Animal.js",
+                language="javascript",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="src/Animal.js",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            ),
+            ParseResult(
+                file_path="src/Pet.js",
+                language="javascript",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="src/Pet.js",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            ),
+        ]
+    )
+
+    dependencies = extract_javascript_inheritance_dependencies(
+        source_file="src/Dog.js",
+        source_code=source_code,
+        symbol_index=symbol_index,
+    )
+
+    assert len(dependencies) == 1
+    assert dependencies[0].kind == "inherits"
+    assert dependencies[0].source_file == "src/Dog.js"
+    assert dependencies[0].target_file == "src/Animal.js"
+    assert dependencies[0].source_symbol == "Dog"
+    assert dependencies[0].target_symbol == "Animal"

@@ -102,3 +102,136 @@ def test_resolves_same_file_csharp_inheritance():
     assert dependencies[0].source_symbol == "Dog"
     assert dependencies[0].target_symbol == "Animal"
     assert dependencies[0].line_number == 2
+
+
+
+
+def test_resolves_qualified_base_class_when_duplicate_names_exist():
+    source_code = (
+        "namespace Pets;\n"
+        "public class Dog : Animals.Animal {}\n"
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="Animals/Animal.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="Animals/Animal.cs",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            ),
+            ParseResult(
+                file_path="Pets/Animal.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="Pets/Animal.cs",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            ),
+        ]
+    )
+
+    
+    dependencies = extract_csharp_inheritance_dependencies(
+        source_file="Pets/Dog.cs",
+        source_code=source_code,
+        symbol_index=symbol_index,
+        source_files={
+            "Animals/Animal.cs": (
+                "namespace Animals;\n"
+                "public class Animal {}\n"
+            ),
+            "Pets/Animal.cs": (
+                "namespace Pets;\n"
+                "public class Animal {}\n"
+            ),
+        },
+    )
+
+
+    assert len(dependencies) == 1
+    assert dependencies[0].kind == "inherits"
+    assert dependencies[0].source_file == "Pets/Dog.cs"
+    assert dependencies[0].target_file == "Animals/Animal.cs"
+    assert dependencies[0].source_symbol == "Dog"
+    assert dependencies[0].target_symbol == "Animal"
+
+
+
+def test_resolves_qualified_base_class_when_namespace_differs_from_directory():
+    source_code = (
+        "namespace Pets;\n"
+        "public class Dog : Zoo.Animal {}\n"
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="models/Animal.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="models/Animal.cs",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            ),
+            ParseResult(
+                file_path="Pets/Animal.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="Pets/Animal.cs",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            ),
+        ]
+    )
+
+    
+    dependencies = extract_csharp_inheritance_dependencies(
+        source_file="Pets/Dog.cs",
+        source_code=source_code,
+        symbol_index=symbol_index,
+        
+        source_files={
+            "models/Animal.cs": (
+                "namespace Zoo;\n"
+                "public class Animal {}\n"
+            ),
+            "Pets/Animal.cs": (
+                "namespace Pets;\n"
+                "public class Animal {}\n"
+            ),
+        },
+
+    )
+
+
+    assert len(dependencies) == 1
+    assert dependencies[0].target_file == "models/Animal.cs"
+    assert dependencies[0].source_symbol == "Dog"
+    assert dependencies[0].target_symbol == "Animal"

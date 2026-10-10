@@ -1,12 +1,46 @@
 
 import tree_sitter_javascript as ts_javascript
 from tree_sitter import Language, Parser
+from pathlib import PurePosixPath
+import posixpath
 
 from app.schemas.dependency import CodeDependency
 from app.services.symbols.symbol_index import SymbolIndex
 
 
 JAVASCRIPT_LANGUAGE = Language(ts_javascript.language())
+
+
+
+def _resolve_imported_module(
+    source_file: str,
+    module_path: str,
+    symbol_index: SymbolIndex,
+) -> set[str]:
+    """Resolve a relative JavaScript import to indexed repository files."""
+    if not module_path.startswith("."):
+        return set()
+
+    source_directory = posixpath.dirname(source_file.replace("\\", "/"))
+    resolved_path = posixpath.normpath(
+        posixpath.join(source_directory, module_path)
+    )
+
+    extensions = ("", ".js", ".jsx", ".mjs", ".cjs")
+    candidates: set[str] = set()
+
+    for extension in extensions:
+        candidates.add(resolved_path + extension)
+
+    for extension in (".js", ".jsx", ".mjs", ".cjs"):
+        candidates.add(posixpath.join(resolved_path, "index" + extension))
+
+    indexed_files = {
+        symbol.file_path.replace("\\", "/")
+        for symbol in symbol_index.all_symbols()
+    }
+
+    return candidates & indexed_files
 
 
 def extract_javascript_inheritance_dependencies(
@@ -104,13 +138,27 @@ def extract_javascript_inheritance_dependencies(
     seen: set[tuple[str, str, str, str, int]] = set()
 
     for class_name, base_name, line_number in classes:
+        
         candidates = [
             symbol
             for symbol in symbol_index.find_by_name(base_name)
             if symbol.kind == "class"
         ]
 
-        if base_name not in imported_names:
+        if base_name in imported_names:
+            module_path = imported_names[base_name]
+            resolved_files = _resolve_imported_module(
+                source_file=source_file,
+                module_path=module_path,
+                symbol_index=symbol_index,
+            )
+
+            candidates = [
+                symbol
+                for symbol in candidates
+                if symbol.file_path.replace("\\", "/") in resolved_files
+            ]
+        else:
             candidates = [
                 symbol
                 for symbol in candidates
@@ -119,6 +167,7 @@ def extract_javascript_inheritance_dependencies(
 
         if len(candidates) != 1:
             continue
+
 
         target = candidates[0]
         key = (
