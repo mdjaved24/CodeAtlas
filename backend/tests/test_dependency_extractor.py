@@ -2,10 +2,8 @@
 from pathlib import Path
 
 from app.schemas.source_parser import CodeSymbol, ParseResult
-from app.services.dependency_extractor import (
-    extract_repository_dependencies,
-)
-from app.services.symbol_index import SymbolIndex
+from app.services.dependencies.dependency_extractor import extract_repository_dependencies
+from app.services.symbols.symbol_index import SymbolIndex
 
 
 def test_combines_import_and_call_dependencies(tmp_path: Path):
@@ -131,11 +129,6 @@ def test_skips_missing_source_file(tmp_path: Path):
 
 
 def test_extracts_javascript_import_dependencies(tmp_path):
-    from app.services.dependency_extractor import (
-        extract_repository_dependencies,
-    )
-    from app.services.symbol_index import SymbolIndex
-    from app.schemas.source_parser import ParseResult
 
     source_dir = tmp_path / "src"
     source_dir.mkdir()
@@ -173,4 +166,52 @@ def test_extracts_javascript_import_dependencies(tmp_path):
     assert len(dependencies) == 1
     assert dependencies[0].source_file == "src/payment.js"
     assert dependencies[0].target_file == "src/users.js"
+    assert dependencies[0].kind == "imports"
+
+
+
+
+def test_extracts_typescript_import_dependencies(tmp_path):
+    from app.services.dependencies.dependency_extractor import (
+        extract_repository_dependencies,
+    )
+    from app.schemas.source_parser import ParseResult
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+
+    (source_dir / "payment.ts").write_text(
+        'import { validateUser } from "./users";\n',
+        encoding="utf-8",
+    )
+    (source_dir / "users.ts").write_text(
+        "export function validateUser(): void {}\n",
+        encoding="utf-8",
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="src/payment.ts",
+            language="typescript",
+            status="success",
+            symbols=[],
+        ),
+        ParseResult(
+            file_path="src/users.ts",
+            language="typescript",
+            status="success",
+            symbols=[],
+        ),
+    ]
+
+    dependencies = extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=SymbolIndex([]),
+    )
+
+    assert len(dependencies) == 1
+    assert dependencies[0].source_file == "src/payment.ts"
+    assert dependencies[0].target_file == "src/users.ts"
     assert dependencies[0].kind == "imports"

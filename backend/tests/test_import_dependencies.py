@@ -1,7 +1,7 @@
 
 from pathlib import Path
 
-from app.services.import_dependency_extractor import (
+from app.services.dependencies.import_dependency_extractor import (
     extract_python_import_dependencies,
 )
 

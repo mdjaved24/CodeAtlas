@@ -1,7 +1,7 @@
 
 from app.schemas.source_parser import CodeSymbol, ParseResult
-from app.services.symbol_index import SymbolIndex
-from app.services.symbol_resolver import resolve_symbol
+from app.services.symbols.symbol_index import SymbolIndex
+from app.services.symbols.symbol_resolver import resolve_symbol
 
 
 def make_symbol(name: str, file_path: str) -> CodeSymbol:
@@ -105,10 +105,7 @@ def test_missing_import_target_does_not_fall_back():
     assert result.candidates == []
 
 
-
-
 def test_resolves_same_package_relative_import(tmp_path):
-    from app.services.symbol_resolver import resolve_symbol
 
     package = tmp_path / "services"
     package.mkdir()

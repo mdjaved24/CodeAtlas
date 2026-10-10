@@ -1,7 +1,7 @@
 
 from pathlib import Path
 
-from app.services.javascript_import_dependency_extractor import (
+from app.services.dependencies.javascript_import_dependency_extractor import (
     extract_javascript_import_dependencies,
 )
 

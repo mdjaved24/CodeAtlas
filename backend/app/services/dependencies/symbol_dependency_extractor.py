@@ -3,7 +3,7 @@ import ast
 from pathlib import PurePosixPath
 
 from app.schemas.dependency import CodeDependency
-from app.services.symbol_index import SymbolIndex
+from app.services.symbols.symbol_index import SymbolIndex
 
 
 

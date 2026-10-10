@@ -3,17 +3,20 @@ from pathlib import Path, PurePosixPath
 
 from app.schemas.dependency import CodeDependency
 from app.schemas.source_parser import ParseResult
-from app.services.import_dependency_extractor import (
+from app.services.dependencies.import_dependency_extractor import (
     extract_python_import_dependencies,
 )
-from app.services.symbol_dependency_extractor import (
+from app.services.dependencies.symbol_dependency_extractor import (
     extract_python_call_dependencies,
 )
-from app.services.javascript_import_dependency_extractor import (
+from app.services.dependencies.javascript_import_dependency_extractor import (
     extract_javascript_import_dependencies,
 )
+from app.services.dependencies.typescript_import_dependency_extractor import (
+    extract_typescript_import_dependencies,
+)
 
-from app.services.symbol_index import SymbolIndex
+from app.services.symbols.symbol_index import SymbolIndex
 
 
 def extract_repository_dependencies(
@@ -31,7 +34,7 @@ def extract_repository_dependencies(
             continue
 
         
-        if result.language not in ("python", "javascript"):
+        if result.language not in ("python", "javascript", "typescript"):
             continue
 
         relative_path = PurePosixPath(result.file_path)
@@ -83,6 +86,18 @@ def extract_repository_dependencies(
             try:
                 dependencies.extend(
                     extract_javascript_import_dependencies(
+                        repository_root=root,
+                        source_file=result.file_path,
+                        source_code=source_code,
+                    )
+                )
+            except Exception:
+                pass
+
+        elif result.language == "typescript":
+            try:
+                dependencies.extend(
+                    extract_typescript_import_dependencies(
                         repository_root=root,
                         source_file=result.file_path,
                         source_code=source_code,

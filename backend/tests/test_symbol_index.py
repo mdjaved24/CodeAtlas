@@ -1,6 +1,6 @@
 
 from app.schemas.source_parser import CodeSymbol, ParseResult
-from app.services.symbol_index import SymbolIndex
+from app.services.symbols.symbol_index import SymbolIndex
 
 
 def make_symbol(

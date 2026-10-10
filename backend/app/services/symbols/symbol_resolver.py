@@ -4,7 +4,7 @@ from pathlib import PurePosixPath
 
 from app.schemas.source_parser import CodeSymbol
 from app.schemas.symbol_resolution import SymbolResolution
-from app.services.symbol_index import SymbolIndex
+from app.services.symbols.symbol_index import SymbolIndex
 
 
 def _module_to_path(module: str) -> str:

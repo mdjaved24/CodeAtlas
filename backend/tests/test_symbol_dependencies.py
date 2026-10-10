@@ -2,8 +2,8 @@
 from pathlib import Path
 
 from app.schemas.source_parser import CodeSymbol, ParseResult
-from app.services.symbol_index import SymbolIndex
-from app.services.symbol_dependency_extractor import (
+from app.services.symbols.symbol_index import SymbolIndex
+from app.services.dependencies.symbol_dependency_extractor import (
     extract_python_call_dependencies,
 )
 
