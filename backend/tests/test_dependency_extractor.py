@@ -125,3 +125,52 @@ def test_skips_missing_source_file(tmp_path: Path):
     )
 
     assert dependencies == []
+
+
+
+
+
+def test_extracts_javascript_import_dependencies(tmp_path):
+    from app.services.dependency_extractor import (
+        extract_repository_dependencies,
+    )
+    from app.services.symbol_index import SymbolIndex
+    from app.schemas.source_parser import ParseResult
+
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+
+    (source_dir / "payment.js").write_text(
+        'import { validateUser } from "./users.js";\n',
+        encoding="utf-8",
+    )
+    (source_dir / "users.js").write_text(
+        "export function validateUser() {}\n",
+        encoding="utf-8",
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="src/payment.js",
+            language="javascript",
+            status="success",
+            symbols=[],
+        ),
+        ParseResult(
+            file_path="src/users.js",
+            language="javascript",
+            status="success",
+            symbols=[],
+        ),
+    ]
+
+    dependencies = extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=SymbolIndex([]),
+    )
+
+    assert len(dependencies) == 1
+    assert dependencies[0].source_file == "src/payment.js"
+    assert dependencies[0].target_file == "src/users.js"
+    assert dependencies[0].kind == "imports"

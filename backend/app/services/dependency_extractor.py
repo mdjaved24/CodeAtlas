@@ -9,6 +9,10 @@ from app.services.import_dependency_extractor import (
 from app.services.symbol_dependency_extractor import (
     extract_python_call_dependencies,
 )
+from app.services.javascript_import_dependency_extractor import (
+    extract_javascript_import_dependencies,
+)
+
 from app.services.symbol_index import SymbolIndex
 
 
@@ -26,7 +30,8 @@ def extract_repository_dependencies(
         if result.status not in ("success", "partial"):
             continue
 
-        if result.language != "python":
+        
+        if result.language not in ("python", "javascript"):
             continue
 
         relative_path = PurePosixPath(result.file_path)
@@ -48,33 +53,43 @@ def extract_repository_dependencies(
 
             source_code = resolved_path.read_text(encoding="utf-8")
 
-        except (OSError, ValueError):
-            # One inaccessible file must not stop processing the repository.
+        except (OSError, ValueError, RuntimeError):
             continue
 
-        try:
-            dependencies.extend(
-                extract_python_import_dependencies(
-                    repository_root=root,
-                    source_file=result.file_path,
-                    source_code=source_code,
+        if result.language == "python":
+            try:
+                dependencies.extend(
+                    extract_python_import_dependencies(
+                        repository_root=root,
+                        source_file=result.file_path,
+                        source_code=source_code,
+                    )
                 )
-            )
-        except Exception:
-            # Isolate unexpected failures in import extraction.
-            pass
+            except Exception:
+                pass
 
-        try:
-            dependencies.extend(
-                extract_python_call_dependencies(
-                    source_file=result.file_path,
-                    source_code=source_code,
-                    symbol_index=symbol_index,
+            try:
+                dependencies.extend(
+                    extract_python_call_dependencies(
+                        source_file=result.file_path,
+                        source_code=source_code,
+                        symbol_index=symbol_index,
+                    )
                 )
-            )
-        except Exception:
-            # Isolate unexpected failures in call extraction.
-            pass
+            except Exception:
+                pass
+
+        elif result.language == "javascript":
+            try:
+                dependencies.extend(
+                    extract_javascript_import_dependencies(
+                        repository_root=root,
+                        source_file=result.file_path,
+                        source_code=source_code,
+                    )
+                )
+            except Exception:
+                pass
 
     # Keep each distinct relationship once while preserving order.
     unique_dependencies: list[CodeDependency] = []
