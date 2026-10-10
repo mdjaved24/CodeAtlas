@@ -602,3 +602,362 @@ def test_orchestrator_processes_all_five_languages(
     assert {dependency.source_file for dependency in dependencies} == set(
         languages.values()
     )
+
+
+
+
+def test_orchestrator_extracts_python_inheritance(tmp_path, monkeypatch):
+    from app.schemas.source_parser import CodeSymbol, ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "animals.py").write_text(
+        "class Animal:\n    pass\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "dogs.py").write_text(
+        "from animals import Animal\n\nclass Dog(Animal):\n    pass\n",
+        encoding="utf-8",
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="animals.py",
+                language="python",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="animals.py",
+                        start_line=1,
+                        end_line=2,
+                    )
+                ],
+            )
+        ]
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_import_dependencies",
+        lambda **kwargs: [],
+    )
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_call_dependencies",
+        lambda **kwargs: [],
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="dogs.py",
+            language="python",
+            status="success",
+            symbols=[],
+        )
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=symbol_index,
+    )
+
+    inheritance_dependencies = [
+        dependency
+        for dependency in dependencies
+        if dependency.kind == "inherits"
+    ]
+
+    assert len(inheritance_dependencies) == 1
+    assert inheritance_dependencies[0].source_file == "dogs.py"
+    assert inheritance_dependencies[0].target_file == "animals.py"
+    assert inheritance_dependencies[0].source_symbol == "Dog"
+    assert inheritance_dependencies[0].target_symbol == "Animal"
+
+
+
+
+def test_orchestrator_extracts_javascript_inheritance(
+    tmp_path, monkeypatch
+):
+    from app.schemas.source_parser import CodeSymbol, ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "Animal.js").write_text(
+        "class Animal {}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Dog.js").write_text(
+        'import { Animal } from "./Animal.js";\n'
+        "class Dog extends Animal {}\n",
+        encoding="utf-8",
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="Animal.js",
+                language="javascript",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="Animal.js",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            )
+        ]
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_javascript_import_dependencies",
+        lambda **kwargs: [],
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="Dog.js",
+            language="javascript",
+            status="success",
+            symbols=[],
+        )
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=symbol_index,
+    )
+
+    inheritance_dependencies = [
+        dependency
+        for dependency in dependencies
+        if dependency.kind == "inherits"
+    ]
+
+    assert len(inheritance_dependencies) == 1
+    assert inheritance_dependencies[0].source_file == "Dog.js"
+    assert inheritance_dependencies[0].target_file == "Animal.js"
+    assert inheritance_dependencies[0].source_symbol == "Dog"
+    assert inheritance_dependencies[0].target_symbol == "Animal"
+
+
+
+
+def test_orchestrator_extracts_typescript_inheritance(
+    tmp_path, monkeypatch
+):
+    from app.schemas.source_parser import CodeSymbol, ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "Animal.ts").write_text(
+        "export class Animal {}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Dog.ts").write_text(
+        'import { Animal } from "./Animal";\n'
+        "class Dog extends Animal {}\n",
+        encoding="utf-8",
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="Animal.ts",
+                language="typescript",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="Animal.ts",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            )
+        ]
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_typescript_import_dependencies",
+        lambda **kwargs: [],
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="Dog.ts",
+            language="typescript",
+            status="success",
+            symbols=[],
+        )
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=symbol_index,
+    )
+
+    inheritance_dependencies = [
+        dependency
+        for dependency in dependencies
+        if dependency.kind == "inherits"
+    ]
+
+    assert len(inheritance_dependencies) == 1
+    assert inheritance_dependencies[0].source_file == "Dog.ts"
+    assert inheritance_dependencies[0].target_file == "Animal.ts"
+    assert inheritance_dependencies[0].source_symbol == "Dog"
+    assert inheritance_dependencies[0].target_symbol == "Animal"
+
+
+
+def test_orchestrator_extracts_java_inheritance(tmp_path, monkeypatch):
+    from app.schemas.source_parser import CodeSymbol, ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "Dog.java").write_text(
+        "class Animal {}\n"
+        "class Dog extends Animal {}\n",
+        encoding="utf-8",
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="Dog.java",
+                language="java",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="Dog.java",
+                        start_line=1,
+                        end_line=1,
+                    ),
+                    CodeSymbol(
+                        name="Dog",
+                        kind="class",
+                        file_path="Dog.java",
+                        start_line=2,
+                        end_line=2,
+                    ),
+                ],
+            )
+        ]
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_java_import_dependencies",
+        lambda **kwargs: [],
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="Dog.java",
+            language="java",
+            status="success",
+            symbols=[],
+        )
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=symbol_index,
+    )
+
+    inheritance_dependencies = [
+        dependency
+        for dependency in dependencies
+        if dependency.kind == "inherits"
+    ]
+
+    assert len(inheritance_dependencies) == 1
+    assert inheritance_dependencies[0].source_file == "Dog.java"
+    assert inheritance_dependencies[0].target_file == "Dog.java"
+    assert inheritance_dependencies[0].source_symbol == "Dog"
+    assert inheritance_dependencies[0].target_symbol == "Animal"
+    assert inheritance_dependencies[0].line_number == 2
+
+
+
+def test_orchestrator_extracts_csharp_inheritance(tmp_path, monkeypatch):
+    from app.schemas.source_parser import CodeSymbol, ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "Animal.cs").write_text(
+        "class Animal {}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Dog.cs").write_text(
+        "class Dog : Animal {}\n",
+        encoding="utf-8",
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="Animal.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="Animal.cs",
+                        start_line=1,
+                        end_line=1,
+                    )
+                ],
+            )
+        ]
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_csharp_import_dependencies",
+        lambda **kwargs: [],
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="Dog.cs",
+            language="csharp",
+            status="success",
+            symbols=[],
+        )
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=symbol_index,
+    )
+
+    inheritance_dependencies = [
+        dependency
+        for dependency in dependencies
+        if dependency.kind == "inherits"
+    ]
+
+    assert len(inheritance_dependencies) == 1
+    assert inheritance_dependencies[0].source_file == "Dog.cs"
+    assert inheritance_dependencies[0].target_file == "Animal.cs"
+    assert inheritance_dependencies[0].source_symbol == "Dog"
+    assert inheritance_dependencies[0].target_symbol == "Animal"

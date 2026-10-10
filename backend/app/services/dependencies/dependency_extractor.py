@@ -21,6 +21,21 @@ from app.services.dependencies.java_import_dependency_extractor import (
 from app.services.dependencies.csharp_import_dependency_extractor import (
     extract_csharp_import_dependencies,
 )
+from app.services.dependencies.inheritance_dependency_extractor import (
+    extract_python_inheritance_dependencies,
+)
+from app.services.dependencies.javascript_inheritance_dependency_extractor import (
+    extract_javascript_inheritance_dependencies,
+)
+from app.services.dependencies.typescript_inheritance_dependency_extractor import (
+    extract_typescript_inheritance_dependencies,
+)
+from app.services.dependencies.java_inheritance_dependency_extractor import (
+    extract_java_inheritance_dependencies,
+)
+from app.services.dependencies.csharp_inheritance_dependency_extractor import (
+    extract_csharp_inheritance_dependencies,
+)
 
 from app.services.symbols.symbol_index import SymbolIndex
 
@@ -107,6 +122,21 @@ def extract_repository_dependencies(
                     result.language,
                 )
 
+            try:
+                dependencies.extend(
+                    extract_python_inheritance_dependencies(
+                        source_file=result.file_path,
+                        source_code=source_code,
+                        symbol_index=symbol_index,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
+
         elif result.language == "javascript":
             try:
                 dependencies.extend(
@@ -123,6 +153,21 @@ def extract_repository_dependencies(
                     result.language,
                 )               
 
+            try:
+                dependencies.extend(
+                    extract_javascript_inheritance_dependencies(
+                        source_file=result.file_path,
+                        source_code=source_code,
+                        symbol_index=symbol_index,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
+
         elif result.language == "typescript":
             try:
                 dependencies.extend(
@@ -130,6 +175,21 @@ def extract_repository_dependencies(
                         repository_root=root,
                         source_file=result.file_path,
                         source_code=source_code,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
+
+            try:
+                dependencies.extend(
+                    extract_typescript_inheritance_dependencies(
+                        source_file=result.file_path,
+                        source_code=source_code,
+                        symbol_index=symbol_index,
                     )
                 )
             except Exception:
@@ -155,6 +215,23 @@ def extract_repository_dependencies(
                     result.language,
                 )
 
+            
+            try:
+                dependencies.extend(
+                    extract_java_inheritance_dependencies(
+                        source_file=result.file_path,
+                        source_code=source_code,
+                        symbol_index=symbol_index,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
+           
+
         elif result.language == "csharp":
             try:
                 dependencies.extend(
@@ -170,6 +247,22 @@ def extract_repository_dependencies(
                     result.file_path,
                     result.language,
                 )
+            
+            try:
+                dependencies.extend(
+                    extract_csharp_inheritance_dependencies(
+                        source_file=result.file_path,
+                        source_code=source_code,
+                        symbol_index=symbol_index,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
+
 
     # Keep each distinct relationship once while preserving order.
     unique_dependencies: list[CodeDependency] = []
