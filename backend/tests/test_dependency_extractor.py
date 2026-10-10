@@ -215,3 +215,136 @@ def test_extracts_typescript_import_dependencies(tmp_path):
     assert dependencies[0].source_file == "src/payment.ts"
     assert dependencies[0].target_file == "src/users.ts"
     assert dependencies[0].kind == "imports"
+
+
+
+
+def test_extracts_java_import_dependencies(tmp_path):
+    from app.schemas.source_parser import ParseResult
+    from app.services.dependencies.dependency_extractor import (
+        extract_repository_dependencies,
+    )
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    source_dir = tmp_path / "src/main/java/com/example"
+    source_dir.mkdir(parents=True)
+
+    (source_dir / "PaymentService.java").write_text(
+        """\
+package com.example;
+
+import com.example.users.UserService;
+
+public class PaymentService {}
+""",
+        encoding="utf-8",
+    )
+
+    users_dir = source_dir / "users"
+    users_dir.mkdir()
+
+    (users_dir / "UserService.java").write_text(
+        """\
+package com.example.users;
+
+public class UserService {}
+""",
+        encoding="utf-8",
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="src/main/java/com/example/PaymentService.java",
+            language="java",
+            status="success",
+            symbols=[],
+        ),
+        ParseResult(
+            file_path="src/main/java/com/example/users/UserService.java",
+            language="java",
+            status="success",
+            symbols=[],
+        ),
+    ]
+
+    dependencies = extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=SymbolIndex([]),
+    )
+
+    assert len(dependencies) == 1
+    assert dependencies[0].source_file == (
+        "src/main/java/com/example/PaymentService.java"
+    )
+    assert dependencies[0].target_file == (
+        "src/main/java/com/example/users/UserService.java"
+    )
+    assert dependencies[0].kind == "imports"
+    assert dependencies[0].line_number == 3
+
+
+
+def test_extracts_csharp_import_dependencies(tmp_path):
+    from app.schemas.source_parser import ParseResult
+    from app.services.dependencies.dependency_extractor import (
+        extract_repository_dependencies,
+    )
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    services_dir = tmp_path / "Services"
+    services_dir.mkdir(parents=True)
+
+    (services_dir / "UserService.cs").write_text(
+        """\
+namespace MyApp.Services
+{
+    public class UserService {}
+}
+""",
+        encoding="utf-8",
+    )
+
+    controllers_dir = tmp_path / "Controllers"
+    controllers_dir.mkdir(parents=True)
+
+    (controllers_dir / "UserController.cs").write_text(
+        """\
+using MyApp.Services;
+
+namespace MyApp.Controllers
+{
+    public class UserController {}
+}
+""",
+        encoding="utf-8",
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="Controllers/UserController.cs",
+            language="csharp",
+            status="success",
+            symbols=[],
+        ),
+        ParseResult(
+            file_path="Services/UserService.cs",
+            language="csharp",
+            status="success",
+            symbols=[],
+        ),
+    ]
+
+    dependencies = extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=SymbolIndex([]),
+    )
+
+    assert len(dependencies) == 1
+    assert dependencies[0].source_file == (
+        "Controllers/UserController.cs"
+    )
+    assert dependencies[0].target_file == "Services/UserService.cs"
+    assert dependencies[0].kind == "imports"
+    assert dependencies[0].line_number == 1

@@ -15,6 +15,12 @@ from app.services.dependencies.javascript_import_dependency_extractor import (
 from app.services.dependencies.typescript_import_dependency_extractor import (
     extract_typescript_import_dependencies,
 )
+from app.services.dependencies.java_import_dependency_extractor import (
+    extract_java_import_dependencies,
+)
+from app.services.dependencies.csharp_import_dependency_extractor import (
+    extract_csharp_import_dependencies,
+)
 
 from app.services.symbols.symbol_index import SymbolIndex
 
@@ -34,7 +40,13 @@ def extract_repository_dependencies(
             continue
 
         
-        if result.language not in ("python", "javascript", "typescript"):
+        if result.language not in (
+            "python",
+            "javascript",
+            "typescript",
+            "java",
+            "csharp",
+        ):
             continue
 
         relative_path = PurePosixPath(result.file_path)
@@ -98,6 +110,30 @@ def extract_repository_dependencies(
             try:
                 dependencies.extend(
                     extract_typescript_import_dependencies(
+                        repository_root=root,
+                        source_file=result.file_path,
+                        source_code=source_code,
+                    )
+                )
+            except Exception:
+                pass
+
+        elif result.language == "java":
+            try:
+                dependencies.extend(
+                    extract_java_import_dependencies(
+                        repository_root=root,
+                        source_file=result.file_path,
+                        source_code=source_code,
+                    )
+                )
+            except Exception:
+                pass
+
+        elif result.language == "csharp":
+            try:
+                dependencies.extend(
+                    extract_csharp_import_dependencies(
                         repository_root=root,
                         source_file=result.file_path,
                         source_code=source_code,
