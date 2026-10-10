@@ -4,6 +4,7 @@ from pathlib import Path
 from app.schemas.source_parser import CodeSymbol, ParseResult
 from app.services.dependencies.dependency_extractor import extract_repository_dependencies
 from app.services.symbols.symbol_index import SymbolIndex
+from app.schemas.dependency import CodeDependency
 
 
 def test_combines_import_and_call_dependencies(tmp_path: Path):
@@ -1059,3 +1060,108 @@ def test_orchestrator_resolves_csharp_inheritance_regardless_of_parse_order(
     assert inheritance_dependencies[0].source_symbol == "Dog"
     assert inheritance_dependencies[0].target_symbol == "Animal"
     assert inheritance_dependencies[0].line_number == 2
+
+
+def test_orchestrator_combines_csharp_import_and_inheritance_dependencies(
+    tmp_path, monkeypatch
+):
+    from app.schemas.source_parser import CodeSymbol, ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "Animals").mkdir()
+    (tmp_path / "Pets").mkdir()
+
+    (tmp_path / "Animals" / "Animal.cs").write_text(
+        "namespace Animals;\n"
+        "public class Animal {}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Pets" / "Dog.cs").write_text(
+        "using Animals;\n"
+        "namespace Pets;\n"
+        "public class Dog : Animal {}\n",
+        encoding="utf-8",
+    )
+
+    symbol_index = SymbolIndex(
+        [
+            ParseResult(
+                file_path="Animals/Animal.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Animal",
+                        kind="class",
+                        file_path="Animals/Animal.cs",
+                        start_line=2,
+                        end_line=2,
+                    )
+                ],
+            ),
+            ParseResult(
+                file_path="Pets/Dog.cs",
+                language="csharp",
+                status="success",
+                symbols=[
+                    CodeSymbol(
+                        name="Dog",
+                        kind="class",
+                        file_path="Pets/Dog.cs",
+                        start_line=3,
+                        end_line=3,
+                    )
+                ],
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_csharp_import_dependencies",
+        lambda **kwargs: [
+            CodeDependency(
+                source_file="Pets/Dog.cs",
+                target_file="Animals/Animal.cs",
+                kind="imports",
+            )
+        ],
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="Pets/Dog.cs",
+            language="csharp",
+            status="success",
+            symbols=[],
+        ),
+        ParseResult(
+            file_path="Animals/Animal.cs",
+            language="csharp",
+            status="success",
+            symbols=[],
+        ),
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=symbol_index,
+    )
+
+    assert any(
+        dependency.kind == "imports"
+        and dependency.source_file == "Pets/Dog.cs"
+        and dependency.target_file == "Animals/Animal.cs"
+        for dependency in dependencies
+    )
+
+    assert any(
+        dependency.kind == "inherits"
+        and dependency.source_file == "Pets/Dog.cs"
+        and dependency.target_file == "Animals/Animal.cs"
+        and dependency.source_symbol == "Dog"
+        and dependency.target_symbol == "Animal"
+        for dependency in dependencies
+    )
