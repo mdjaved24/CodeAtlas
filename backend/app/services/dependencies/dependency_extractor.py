@@ -25,6 +25,11 @@ from app.services.dependencies.csharp_import_dependency_extractor import (
 from app.services.symbols.symbol_index import SymbolIndex
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 def extract_repository_dependencies(
     repository_root: Path,
     parse_results: list[ParseResult],
@@ -81,7 +86,11 @@ def extract_repository_dependencies(
                     )
                 )
             except Exception:
-                pass
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
 
             try:
                 dependencies.extend(
@@ -92,7 +101,11 @@ def extract_repository_dependencies(
                     )
                 )
             except Exception:
-                pass
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
 
         elif result.language == "javascript":
             try:
@@ -104,7 +117,11 @@ def extract_repository_dependencies(
                     )
                 )
             except Exception:
-                pass
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )               
 
         elif result.language == "typescript":
             try:
@@ -116,7 +133,11 @@ def extract_repository_dependencies(
                     )
                 )
             except Exception:
-                pass
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
 
         elif result.language == "java":
             try:
@@ -128,7 +149,11 @@ def extract_repository_dependencies(
                     )
                 )
             except Exception:
-                pass
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
 
         elif result.language == "csharp":
             try:
@@ -140,7 +165,11 @@ def extract_repository_dependencies(
                     )
                 )
             except Exception:
-                pass
+                logger.exception(
+                    "Dependency extraction failed for %s in %s",
+                    result.file_path,
+                    result.language,
+                )
 
     # Keep each distinct relationship once while preserving order.
     unique_dependencies: list[CodeDependency] = []

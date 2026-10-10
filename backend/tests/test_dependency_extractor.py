@@ -348,3 +348,257 @@ namespace MyApp.Controllers
     assert dependencies[0].target_file == "Services/UserService.cs"
     assert dependencies[0].kind == "imports"
     assert dependencies[0].line_number == 1
+
+
+
+
+def test_records_diagnostic_when_import_extractor_fails(
+    tmp_path, monkeypatch, caplog
+):
+    import logging
+
+    from app.schemas.source_parser import ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    source_file = tmp_path / "example.py"
+    source_file.write_text(
+        "import os\n",
+        encoding="utf-8",
+    )
+
+    def failing_extractor(**kwargs):
+        raise RuntimeError("simulated extractor failure")
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_import_dependencies",
+        failing_extractor,
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="example.py",
+            language="python",
+            status="success",
+            symbols=[],
+        )
+    ]
+
+    with caplog.at_level(
+        logging.ERROR,
+        logger=extractor_module.__name__,
+    ):
+        dependencies = extractor_module.extract_repository_dependencies(
+            repository_root=tmp_path,
+            parse_results=parse_results,
+            symbol_index=SymbolIndex([]),
+        )
+
+    assert dependencies == []
+    
+    assert any(
+        "Dependency extraction failed for example.py in python"
+        in record.message
+        and record.exc_info is not None
+        and "simulated extractor failure" in str(record.exc_info[1])
+        for record in caplog.records
+    )
+
+
+
+
+
+def test_orchestrator_deduplicates_identical_dependencies(
+    tmp_path, monkeypatch
+):
+    from app.schemas.dependency import CodeDependency
+    from app.schemas.source_parser import ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    source_file = tmp_path / "example.py"
+    source_file.write_text("import os\n", encoding="utf-8")
+
+    dependency = CodeDependency(
+        source_file="example.py",
+        target_file="utils.py",
+        kind="imports",
+        line_number=1,
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_import_dependencies",
+        lambda **kwargs: [dependency, dependency.model_copy()],
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_call_dependencies",
+        lambda **kwargs: [],
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="example.py",
+            language="python",
+            status="success",
+            symbols=[],
+        )
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=SymbolIndex([]),
+    )
+
+    assert dependencies == [dependency]
+
+
+
+
+def test_orchestrator_returns_stable_dependency_order(
+    tmp_path, monkeypatch
+):
+    from app.schemas.dependency import CodeDependency
+    from app.schemas.source_parser import ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "example.py").write_text(
+        "import os\n",
+        encoding="utf-8",
+    )
+
+    first = CodeDependency(
+        source_file="example.py",
+        target_file="zebra.py",
+        kind="imports",
+        line_number=1,
+    )
+    second = CodeDependency(
+        source_file="example.py",
+        target_file="alpha.py",
+        kind="imports",
+        line_number=2,
+    )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_import_dependencies",
+        lambda **kwargs: [first, second],
+    )
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_call_dependencies",
+        lambda **kwargs: [],
+    )
+
+    parse_results = [
+        ParseResult(
+            file_path="example.py",
+            language="python",
+            status="success",
+            symbols=[],
+        )
+    ]
+
+    def run_extraction():
+        return extractor_module.extract_repository_dependencies(
+            repository_root=tmp_path,
+            parse_results=parse_results,
+            symbol_index=SymbolIndex([]),
+        )
+
+    first_run = run_extraction()
+    second_run = run_extraction()
+
+    assert first_run == [first, second]
+    assert second_run == first_run
+
+
+
+
+def test_orchestrator_processes_all_five_languages(
+    tmp_path, monkeypatch
+):
+    from app.schemas.dependency import CodeDependency
+    from app.schemas.source_parser import ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    languages = {
+        "python": "example.py",
+        "javascript": "example.js",
+        "typescript": "example.ts",
+        "java": "Example.java",
+        "csharp": "Example.cs",
+    }
+
+    for file_path in languages.values():
+        (tmp_path / file_path).write_text(
+            "// test source\n",
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_import_dependencies",
+        lambda **kwargs: [
+            CodeDependency(
+                source_file=kwargs["source_file"],
+                target_file="python_target.py",
+                kind="imports",
+                line_number=1,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_call_dependencies",
+        lambda **kwargs: [],
+    )
+
+    extractor_names = {
+        "javascript": "extract_javascript_import_dependencies",
+        "typescript": "extract_typescript_import_dependencies",
+        "java": "extract_java_import_dependencies",
+        "csharp": "extract_csharp_import_dependencies",
+    }
+
+    for language, extractor_name in extractor_names.items():
+        monkeypatch.setattr(
+            extractor_module,
+            extractor_name,
+            lambda language=language, **kwargs: [
+                CodeDependency(
+                    source_file=kwargs["source_file"],
+                    target_file=f"{language}_target.cs",
+                    kind="imports",
+                    line_number=1,
+                )
+            ],
+        )
+
+    parse_results = [
+        ParseResult(
+            file_path=file_path,
+            language=language,
+            status="success",
+            symbols=[],
+        )
+        for language, file_path in languages.items()
+    ]
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=parse_results,
+        symbol_index=SymbolIndex([]),
+    )
+
+    assert len(dependencies) == 5
+    assert {dependency.source_file for dependency in dependencies} == set(
+        languages.values()
+    )
