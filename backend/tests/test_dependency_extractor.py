@@ -407,9 +407,6 @@ def test_records_diagnostic_when_import_extractor_fails(
     )
 
 
-
-
-
 def test_orchestrator_deduplicates_identical_dependencies(
     tmp_path, monkeypatch
 ):
@@ -421,17 +418,40 @@ def test_orchestrator_deduplicates_identical_dependencies(
     source_file = tmp_path / "example.py"
     source_file.write_text("import os\n", encoding="utf-8")
 
-    dependency = CodeDependency(
+    import_dependency = CodeDependency(
         source_file="example.py",
         target_file="utils.py",
         kind="imports",
         line_number=1,
     )
 
+    call_dependency = CodeDependency(
+        source_file="example.py",
+        target_file="utils.py",
+        kind="calls",
+        source_symbol="main",
+        target_symbol="helper",
+        line_number=3,
+    )
+
+    another_call_dependency = CodeDependency(
+        source_file="example.py",
+        target_file="utils.py",
+        kind="calls",
+        source_symbol="main",
+        target_symbol="helper",
+        line_number=5,
+    )
+
     monkeypatch.setattr(
         extractor_module,
         "extract_python_import_dependencies",
-        lambda **kwargs: [dependency, dependency.model_copy()],
+        lambda **kwargs: [
+            import_dependency,
+            import_dependency.model_copy(),
+            call_dependency,
+            another_call_dependency,
+        ],
     )
 
     monkeypatch.setattr(
@@ -455,9 +475,11 @@ def test_orchestrator_deduplicates_identical_dependencies(
         symbol_index=SymbolIndex([]),
     )
 
-    assert dependencies == [dependency]
-
-
+    assert dependencies == [
+        import_dependency,
+        call_dependency,
+        another_call_dependency,
+    ]
 
 
 def test_orchestrator_returns_stable_dependency_order(
@@ -1165,3 +1187,76 @@ def test_orchestrator_combines_csharp_import_and_inheritance_dependencies(
         and dependency.target_symbol == "Animal"
         for dependency in dependencies
     )
+
+
+
+def test_orchestrator_preserves_same_file_inheritance(
+    tmp_path, monkeypatch
+):
+    from app.schemas.source_parser import CodeSymbol, ParseResult
+    import app.services.dependencies.dependency_extractor as extractor_module
+    from app.services.symbols.symbol_index import SymbolIndex
+
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "animals.py").write_text(
+        "class Animal:\n"
+        "    pass\n\n"
+        "class Dog(Animal):\n"
+        "    pass\n",
+        encoding="utf-8",
+    )
+
+    parse_result = ParseResult(
+        file_path="models/animals.py",
+        language="python",
+        status="success",
+        symbols=[
+            CodeSymbol(
+                name="Animal",
+                kind="class",
+                file_path="models/animals.py",
+                start_line=1,
+                end_line=2,
+            ),
+            CodeSymbol(
+                name="Dog",
+                kind="class",
+                file_path="models/animals.py",
+                start_line=4,
+                end_line=5,
+            ),
+        ],
+    )
+
+    symbol_index = SymbolIndex([parse_result])
+
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_import_dependencies",
+        lambda **kwargs: [],
+    )
+    monkeypatch.setattr(
+        extractor_module,
+        "extract_python_call_dependencies",
+        lambda **kwargs: [],
+    )
+
+    dependencies = extractor_module.extract_repository_dependencies(
+        repository_root=tmp_path,
+        parse_results=[parse_result],
+        symbol_index=symbol_index,
+    )
+
+    inheritance_dependencies = [
+        dependency
+        for dependency in dependencies
+        if dependency.kind == "inherits"
+    ]
+
+    assert len(inheritance_dependencies) == 1
+
+    dependency = inheritance_dependencies[0]
+    assert dependency.source_file == "models/animals.py"
+    assert dependency.target_file == "models/animals.py"
+    assert dependency.source_symbol == "Dog"
+    assert dependency.target_symbol == "Animal"

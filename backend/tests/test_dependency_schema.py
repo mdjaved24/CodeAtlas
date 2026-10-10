@@ -66,3 +66,16 @@ def test_rejects_unknown_dependency_kind():
             target_file="user.py",
             kind="uses_magic",
         )
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["calls", "inherits", "implements", "references"],
+)
+def test_rejects_symbol_dependency_without_symbols(kind):
+    with pytest.raises(ValidationError):
+        CodeDependency(
+            source_file="src/Child.py",
+            target_file="src/Parent.py",
+            kind=kind,
+        )
