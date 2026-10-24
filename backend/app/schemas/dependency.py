@@ -29,8 +29,14 @@ class CodeDependency(BaseModel):
     line_number: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
-    def validate_dependency(self):
-        if self.kind in ("calls", "inherits", "implements", "references"):
+    def validate_dependency(self) -> "CodeDependency":
+        if self.kind == "imports":
+            if self.source_symbol is not None or self.target_symbol is not None:
+                raise ValueError(
+                    "Import dependencies must not specify symbol endpoints"
+                )
+
+        elif self.kind in ("calls", "inherits", "implements", "references"):
             if not self.source_symbol or not self.target_symbol:
                 raise ValueError(
                     "Symbol-level dependencies require source_symbol "
